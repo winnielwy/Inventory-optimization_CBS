@@ -1,0 +1,10 @@
+reset;
+reset;
+
+model bikeshare.mod;
+data bikeshare.dat;
+
+option solver knitro;
+option presolve 1;
+
+solve;
