@@ -1,0 +1,73 @@
+##SETS
+
+set M;			#Months (1-12: May 2015 - April 2016)
+set W;			#Warehouses (1-7)
+
+##VARIABLES
+
+var buy{M} >=0 integer;			#Number of bikes to buy in month M
+var move{M} integer;			#Number of bikes to move to (<0) or from (>0) warehouse
+var inventory{M} >= 0 integer;	#Total number of bikes (available + warehouse)
+var stored{M} >= 0 integer;		#Number of bikes stored each month
+
+var x{W} binary;				#Binary decision to rent warehouse
+var hours{M} >= 0;				#Number of hours to operate trucks moving bicycles
+
+
+##PARAMETERS
+param required{M} >= 0;		#Number of available bikes required in month M, based on demand
+
+param subscription{M} >= 0;	#Projected income from subscriptions each month
+param fees{M} >=0;			#Projected income from usage fees each month
+
+param repair{M} >= 0;		#Percent of bicycles that historically need repairs in each month
+param REPAIR >= 0;			#Average cost to restore a bicycle
+param NEW >= 0;				#Cost to buy a new bicycle
+
+param rent{W} >= 0;			#Cost to rent warehouse for one month
+param cap{W} >= 0;			#Warehouse capacity (number of bicycles)
+param travtime{W} >=0;		#Average travel time to warehouse
+
+param TRUCK >= 0;			#Number of trucks available to transfer bicycles
+param CAP_T >= 0;			#Capacity of truck
+param OPERATE >= 0;			#Comprehensive cost to operate a truck for one hour
+param MAX_H >= 0;			#Maximum hours to use for truck operation per month
+
+##OBJECTIVE
+
+maximize PROFIT: sum {m in M} subscription[m] 
+				+sum {m in M} fees[m] 
+				-sum {m in M} buy[m]*NEW 
+				-sum {m in M} repair[m]*REPAIR*(inventory[m] - stored[m]) 
+				-sum {m in M} hours[m]*OPERATE 
+				-sum {m in M} sum {w in W} x[w]*rent[w];
+
+##CONSTRAINTS
+
+#Total inventory with new purchases
+subject to inventory1 {m in M: m>1}: inventory[m-1] - inventory[m] + buy[m] = 0;
+
+#Inventory available balanced by movement to warehouse
+subject to inventory2 {m in M: m>1}: (inventory[m-1] - stored[m-1]) - (inventory[m] - stored[m]) + buy[m] + move[m] = 0;
+
+#Inventory = available + stored
+#subject to inventory3 {m in M}: inventory[m] - available[m] - stored[m] = 0;
+
+#Initial values
+subject to initial1 {m in M: m = 1}: inventory[m] = 2844;
+subject to initial3 {m in M: m = 1}: move[m] = 0;
+
+#Meet requirement
+subject to required_bikes {m in M}: inventory[m] - stored[m] - required[m] >=0;
+
+#One warehouse limit
+subject to one_warehouse: sum {w in W} x[w] <= 1;
+
+#Warehouse Capacity
+subject to capacity_w {m in M}: stored[m] - sum {w in W} x[w]*cap[w] <= 0;
+
+#Truck movement capacity
+subject to capacity_t {m in M}: abs(move[m])*sum {w in W} x[w]*travtime[w] - hours[m]*CAP_T <= 0; 
+
+#Truck hours capacity
+subject to capacity_h {m in M}: hours[m] <= MAX_H;
